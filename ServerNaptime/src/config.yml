@@ -1,0 +1,15 @@
+naptime:
+  SleepAllInternalProcesses: false
+  alsoSleepSomeInternalProcesses: true
+  internalProcessesToSleep:
+  - Server-Worker
+  - Paper Async Chunk
+  - Craft Async Scheduler Management Thread
+  - Snooper Timer
+  - Log4j
+  sleepTime: 1000
+  startSleepDelay: 1700
+  ticksAwakeBetweenSleep: 2
+  unloadChunks: true
+  callGarbageCollect: true
+  saveOnUnload: true
