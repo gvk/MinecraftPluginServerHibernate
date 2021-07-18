@@ -15,3 +15,6 @@ A plugin for small servers (eg. with friends) that lets the server sleep / hiber
 
 For small servers I use `java -Xms256m -Xmx3G -jar <jar file> nogui` to reduce RAM usage.  
 However, for performace reasons you might want to use the RAM as much as possible, then use google and look up "aikars flags java".
+
+
+Also check out: https://github.com/gekigek99/minecraft-server-hibernation
