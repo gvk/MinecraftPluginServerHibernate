@@ -2,7 +2,7 @@
  * Under GPL3 License, see https://github.com/gvk/MinecraftSpigotPlugins
  */
 
-package com.gvk.servernaptime.util;
+package com.github.gvk.servernaptime.util;
 
 import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.plugin.java.JavaPlugin;
