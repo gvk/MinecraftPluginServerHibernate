@@ -1,0 +1,14 @@
+name: ServerNaptime
+version: '${project.version}'
+main: com.gvk.servernaptime.ServerNaptimeMain
+api-version: 1.18
+prefix: Server Naptime
+authors: [ gvk, RT5Phantom ]
+description: Server takes a nap while no players are online
+website: https://github.com/RT5Phantom/ServerNaptime
+
+commands:
+  naptime:
+    description: Command that will toggle ServerNaptime.
+    permission: naptime.toggle
+    permission-message: You do not have the required permission (<permission>)

@@ -1,0 +1,42 @@
+AWT-EventQueue-0
+AWT-Shutdown
+AWT-Windows
+Attach Listener
+Craft Async Scheduler Management Thread
+DestroyJavaVM
+Finalizer
+Java2D Disposer
+Log4j2-TF-1-AsyncLogger[AsyncContext@5c647e05]-1
+Netty Server IO #0
+ObjectCleanerThread
+Paper Async Chunk Task Thread #0
+Paper Async Chunk Task Thread #1
+Paper Async Chunk Task Thread #2
+Paper Async Chunk Task Thread #3
+Paper Async Chunk Task Thread #4
+Paper Async Chunk Task Thread #5
+Paper Async Chunk Task Thread #6
+Paper Async Chunk Urgent Task Thread
+Paper Watchdog Thread
+Reference Handler
+Server console handler
+Server thread
+Server-Worker-1
+Server-Worker-10
+Server-Worker-11
+Server-Worker-12
+Server-Worker-2
+Server-Worker-3
+Server-Worker-4
+Server-Worker-5
+Server-Worker-6
+Server-Worker-7
+Server-Worker-8
+Server-Worker-9
+Signal Dispatcher
+Snooper Timer
+Thread-4
+Timer hack thread
+Timer-0
+TimerQueue
+WindowsStreamPump
