@@ -5,22 +5,32 @@
 package gvk;
 
 import java.util.List;
+import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
-import org.bukkit.Bukkit;
 import org.bukkit.Chunk;
 import org.bukkit.World;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandSender;
 import org.bukkit.configuration.file.FileConfiguration;
 
+
 import gvk.util.ConfigUtil;
 import gvk.util.gvkJavaPlugin;
 
+/* About this plugin:
+ * Causes the server to tick very slow (or "sleep") when there are no players online. While new players can still join and "wake up" the server.
+ * Saves resources for small servers (usually used by friends). Also good when you don't want the spawn chunks time to continue when nobody is playing.
+ * (made for smaller vanilla-like servers - at the time 1.16)
+ * 
+ * TODO: Enable freeze using day-light-cycle gamerule.
+ * Also check if all configs works
+ */
+
 /**
- * Plugin class for hibernating or sleep the server when no player are connected. While new players can still join and "wake up" the server. 
- * Saves resources for small servers (with usually friends).
+ * Plugin class for hibernating or sleep the server when no player are connected. Joining causes "wake up".
+ * Saves resources for small servers.
  */
 public final class ServerNaptimeMain extends gvkJavaPlugin {
 	
@@ -31,16 +41,18 @@ public final class ServerNaptimeMain extends gvkJavaPlugin {
 	private static final String CONFIG_startSleepDelay = "naptime.startSleepDelay";
 	private static final String CONFIG_ticksAwakeBetweenSleep = "naptime.ticksAwakeBetweenSleep";
 	private static final String CONFIG_sleepOtherThreads = "naptime.alsoSleepSomeInternalProcesses";
-	private static final String CONFIG_sleepAllThreads = "naptime.SleepAllInternalProcesses";
+	private static final String CONFIG_sleepAllThreads = "naptime.sleepAllInternalProcesses";
 	private static final String CONFIG_threadsToSleep = "naptime.internalProcessesToSleep";
 	private static final String CONFIG_unloadChunks = "naptime.unloadChunks";
 	private static final String CONFIG_callGC = "naptime.callGarbageCollect";
 	private static final String CONFIG_saveOnUnload = "naptime.saveOnUnload";
+	private static final String CONFIG_commandsToExecuteOnSleep = "naptime.commandsToExecuteOnSleep";
+	private static final String CONFIG_commandsToExecuteOnWake = "naptime.commandsToExecuteOnWake";
 	
 	// Plugin settings
 	private boolean isSleepProcessActive = true;
 	private final int sleepTime;
-	private final int taskDelay;
+	private final int firstTaskDelay;
 	private final int taskWaitPeriod;
 	private final boolean sleepOtherThreads;
 	private final boolean sleepAllThreads;
@@ -48,6 +60,8 @@ public final class ServerNaptimeMain extends gvkJavaPlugin {
 	private final boolean unloadChunks;
 	private final boolean callGC;
 	private final boolean saveOnUnload;
+	private final List<String> commandsOnSleep;
+	private final List<String> commandsOnWake;
     
 	/**
 	 * Constructs the plugin instance, and initializes the config.
@@ -66,11 +80,14 @@ public final class ServerNaptimeMain extends gvkJavaPlugin {
     	config.addDefault(CONFIG_callGC, true);
     	config.addDefault(CONFIG_saveOnUnload, true);
     	
+    	config.addDefault(CONFIG_commandsToExecuteOnSleep, new String[0]);
+    	config.addDefault(CONFIG_commandsToExecuteOnWake, new String[0]);
+    	
     	ConfigUtil.saveConfig(this);
     	
     	// read config, with explanations
     	sleepTime = config.getInt(CONFIG_sleepTime); // Time in ms for each nap.
-    	taskDelay = config.getInt(CONFIG_startSleepDelay); // Delay before start in ticks.
+    	firstTaskDelay = config.getInt(CONFIG_startSleepDelay); // Delay before sleeps start in ticks.
     	taskWaitPeriod = config.getInt(CONFIG_ticksAwakeBetweenSleep); // How many ticks between each nap/sleep.
     	sleepOtherThreads = config.getBoolean(CONFIG_sleepOtherThreads); // Whether to sleep other threads as well.
     	sleepAllThreads = config.getBoolean(CONFIG_sleepAllThreads); // Whether to sleep all threads.
@@ -78,7 +95,8 @@ public final class ServerNaptimeMain extends gvkJavaPlugin {
     	unloadChunks = config.getBoolean(CONFIG_unloadChunks); // Whether to unload chunks before the first nap.
     	callGC = config.getBoolean(CONFIG_callGC); // Whether to do call java's GC at plugin action start.
     	saveOnUnload = config.getBoolean(CONFIG_saveOnUnload); // Whether to save when the last player leaves the game.
-    	
+    	commandsOnSleep = config.getStringList(CONFIG_commandsToExecuteOnSleep); // Commands when the last player leaves / server starts sleep
+    	commandsOnWake = config.getStringList(CONFIG_commandsToExecuteOnWake); // Commands when a player is first to join / server wakes up
     	
     	consoleInfoMessage("While no players online: Server will sleep every %d ticks, and sleep will be %d milliseconds long.", taskWaitPeriod, sleepTime);
     }
@@ -87,7 +105,7 @@ public final class ServerNaptimeMain extends gvkJavaPlugin {
     public final void onDisable() {
     	isSleepProcessActive = false;
         try {
-            Bukkit.getScheduler().cancelTasks(this);
+        	getServer().getScheduler().cancelTasks(this);
         }
         catch (final Throwable t) {
         	consoleInfoMessage("There was an error while disabling the plugin.");
@@ -101,16 +119,21 @@ public final class ServerNaptimeMain extends gvkJavaPlugin {
     }
     
     /**
-     * Set up the sleep and unload world tasks to be executed when there are no players connected.
+     * Set up the sleep and unload world tasks to be executed when there are no players connected. Executes when plugin is enabled.
      */
     private final void startSleepTask() {
-    	// set up the two different tasks: [unload + sleep] and just [sleep]
+    	// set up the three different tasks: [unload] and [sleep], and [wake]
     	final Runnable constinuousSleepTask = this::trySleepThreads;
     	final Runnable firstSleepTask = () -> {
+    		runOnSleepCommands();
     		unloadAllChunks();
-    		trySleepThreads();
+    		//trySleepThreads(); // let it tick for the command and unload to happen.
     		currentTask = constinuousSleepTask;
     		consoleInfoMessage("No, players connected. Sleep cycle started...");
+    	};
+    	final Runnable firstWakeTask = () -> {
+    		if(currentTask != firstSleepTask) runOnWakeCommands();
+    		currentTask = firstSleepTask; // reset
     	};
     	
     	// set the first current task
@@ -121,13 +144,13 @@ public final class ServerNaptimeMain extends gvkJavaPlugin {
 			if (shouldServerSleep())
     			currentTask.run(); // run the task
             else
-            	currentTask = firstSleepTask; // reset
+            	firstWakeTask.run(); // resets and calls commands.
     	};
     	
     	// repeatedly run the task with delay in between
-    	Bukkit.getScheduler().scheduleSyncRepeatingTask(this, scheduledTask, taskDelay, taskWaitPeriod);
+    	getServer().getScheduler().scheduleSyncRepeatingTask(this, scheduledTask, firstTaskDelay, taskWaitPeriod);
 	}
-    private Runnable currentTask;
+	private Runnable currentTask;
     
     /**
      * Sleeps the server thread(s). 
@@ -157,10 +180,18 @@ public final class ServerNaptimeMain extends gvkJavaPlugin {
      * @return a List of all threads to sleep.
      */
     private final List<Thread> filterThreadsBySettings() {
-    	if(sleepAllThreads)
-			return getAllAliveThreads().filter(t -> !t.equals(Thread.currentThread())).collect(Collectors.toList());
+    	if(sleepAllThreads) // different predicate/filter on threads depending on settings
+			return getAllAliveThreadsFiltered(t -> !t.equals(Thread.currentThread()));
 		else
-			return getAllAliveThreads().filter(t -> threadsToSleep.stream().anyMatch(s -> t.getName().startsWith(s))).collect(Collectors.toList());
+			return getAllAliveThreadsFiltered(t -> threadsToSleep.stream().anyMatch(s -> t.getName().startsWith(s)));
+    }
+    
+    /**
+     * Gets all alive threads as a List based on filters/predicate.
+     * @return a List of all current alive threads filtered by provided predicate.
+     */
+    private final List<Thread> getAllAliveThreadsFiltered(Predicate<Thread> filter) {
+    	return getAllAliveThreads().filter(filter).collect(Collectors.toList());
     }
     
     /**
@@ -172,23 +203,43 @@ public final class ServerNaptimeMain extends gvkJavaPlugin {
     }
     
     /**
+     * Executes the commands specified in the config file, when the last player leaves.
+     */
+    private void runOnSleepCommands() {
+    	runCommandsAsConsole(commandsOnSleep);
+	}
+    /**
+     * Executes the commands specified in the config file, when the first player joins
+     */
+    private void runOnWakeCommands() {
+    	runCommandsAsConsole(commandsOnWake);
+	}
+    /**
+     * Executes the commands specified in the provided list as console/admin
+     */
+    private void runCommandsAsConsole(List<String> commands) {
+    	commands.forEach(command -> getServer().dispatchCommand(getServer().getConsoleSender(), command));
+    }
+    
+    /**
      * Unloads all chunks in all worlds, also by settings optionally saves the chunks.
      */
     private final void unloadAllChunks() {
     	if(unloadChunks) {
     		boolean save = saveOnUnload;
-    		for (final World w : Bukkit.getWorlds()) {
-                for (final Chunk c : w.getLoadedChunks()) {
-                    c.unload(save);
-                }
-                // Bukkit.unloadWorld(w, true); // nah, too little to gain, while also having to reload when player joins.
-            }
+    		for (final World w : getServer().getWorlds()) {
+    			for (final Chunk c : w.getLoadedChunks()) {
+    				c.unload(save);
+    			}
+    			if(save) w.save();
+    			// getServer().unloadWorld(w, true); // nah, too little to gain, while also having to reload when player joins.
+    		}
     	}
-        if(callGC) { // some server owners know better than this, and are free to disable it.
-	        System.gc();
-	        System.runFinalization();
-        }
-    }
+    	if(callGC) { // some server owners know better than this, and are free to disable it.
+    		System.gc();
+    		System.runFinalization();
+    	}
+	}
 
     
     @Override
@@ -196,11 +247,11 @@ public final class ServerNaptimeMain extends gvkJavaPlugin {
     	// when is this called?? I think it scans the plugin.yml,  but check that.
 		final String commandName = PLUGIN_NAME_SHORT;
 		final String permissionName = PLUGIN_NAME_SHORT+".toggle";
-        if (command.getName().equalsIgnoreCase(commandName) && (sender.isOp() || sender.hasPermission(permissionName))) {
-            sender.sendMessage(String.format("[%s] %s is now %s", PLUGIN_NAME, PLUGIN_NAME_SHORT, this.toggleSleepy() ? "enabled" : "disabled"));
-            return true;
-        }
-        return false;
+		if (command.getName().equalsIgnoreCase(commandName) && (sender.isOp() || sender.hasPermission(permissionName))) {
+			sender.sendMessage(String.format("[%s] %s is now %s", PLUGIN_NAME, PLUGIN_NAME_SHORT, this.toggleSleepy() ? "enabled" : "disabled"));
+			return true;
+		}
+		return false;
     }
 	
     /**
@@ -216,9 +267,9 @@ public final class ServerNaptimeMain extends gvkJavaPlugin {
      * @return true if the server should sleep (no players, and active plugin), false otherwise.
      */
     private final boolean shouldServerSleep() {
-    	return Bukkit.getServer().getOnlinePlayers().size() == 0 && this.isSleepProcessActive;
+    	return getServer().getOnlinePlayers().size() == 0 && this.isSleepProcessActive;
     }
-	
+   
 }
 
 /* === THREAD NAMES === 
