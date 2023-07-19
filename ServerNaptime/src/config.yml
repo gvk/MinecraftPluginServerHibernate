@@ -1,5 +1,5 @@
 naptime:
-  SleepAllInternalProcesses: false
+  sleepAllInternalProcesses: false
   alsoSleepSomeInternalProcesses: true
   internalProcessesToSleep:
   - Server-Worker
