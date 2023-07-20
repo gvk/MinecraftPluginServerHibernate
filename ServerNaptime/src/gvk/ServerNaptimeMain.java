@@ -122,17 +122,17 @@ public final class ServerNaptimeMain extends gvkJavaPlugin {
      * Set up the sleep and unload world tasks to be executed when there are no players connected. Executes when plugin is enabled.
      */
     private final void startSleepTask() {
-    	// set up the three different tasks: [unload] and [sleep], and [wake]
-    	final Runnable constinuousSleepTask = this::trySleepThreads;
-    	final Runnable firstSleepTask = () -> {
+    	// set up the three different tasks: [unload] and [sleep], and [wake].
+    	final Runnable constinuousSleepTask = this::trySleepThreads; // [sleep]
+    	final Runnable firstSleepTask = () -> { // [unload]
     		runOnSleepCommands();
     		unloadAllChunks();
     		//trySleepThreads(); // let it tick for the command and unload to happen.
     		currentTask = constinuousSleepTask;
     		consoleInfoMessage("No, players connected. Sleep cycle started...");
     	};
-    	final Runnable firstWakeTask = () -> {
-    		if(currentTask != firstSleepTask) runOnWakeCommands();
+    	final Runnable firstWakeTask = () -> { // [wake]
+    		if(currentTask == constinuousSleepTask) runOnWakeCommands();
     		currentTask = firstSleepTask; // reset
     	};
     	
@@ -141,10 +141,8 @@ public final class ServerNaptimeMain extends gvkJavaPlugin {
     	
     	// run the tasks
     	final Runnable scheduledTask = () -> {
-			if (shouldServerSleep())
-    			currentTask.run(); // run the task
-            else
-            	firstWakeTask.run(); // resets and calls commands.
+			if (shouldServerSleep()) currentTask.run(); // run the current task, either [unload] or [sleep].
+            else firstWakeTask.run(); // resets and calls commands.
     	};
     	
     	// repeatedly run the task with delay in between
@@ -181,9 +179,8 @@ public final class ServerNaptimeMain extends gvkJavaPlugin {
      */
     private final List<Thread> filterThreadsBySettings() {
     	if(sleepAllThreads) // different predicate/filter on threads depending on settings
-			return getAllAliveThreadsFiltered(t -> !t.equals(Thread.currentThread()));
-		else
-			return getAllAliveThreadsFiltered(t -> threadsToSleep.stream().anyMatch(s -> t.getName().startsWith(s)));
+			 return getAllAliveThreadsFiltered(t -> !t.equals(Thread.currentThread()));
+		else return getAllAliveThreadsFiltered(t -> threadsToSleep.stream().anyMatch(s -> t.getName().startsWith(s)));
     }
     
     /**
@@ -227,11 +224,12 @@ public final class ServerNaptimeMain extends gvkJavaPlugin {
     private final void unloadAllChunks() {
     	if(unloadChunks) {
     		boolean save = saveOnUnload;
+    		consoleInfoMessage("No, players connected. Unloading world... save: "+save);
     		for (final World w : getServer().getWorlds()) {
+    			if(save) w.save();
     			for (final Chunk c : w.getLoadedChunks()) {
     				c.unload(save);
     			}
-    			if(save) w.save();
     			// getServer().unloadWorld(w, true); // nah, too little to gain, while also having to reload when player joins.
     		}
     	}
@@ -248,7 +246,7 @@ public final class ServerNaptimeMain extends gvkJavaPlugin {
 		final String commandName = PLUGIN_NAME_SHORT;
 		final String permissionName = PLUGIN_NAME_SHORT+".toggle";
 		if (command.getName().equalsIgnoreCase(commandName) && (sender.isOp() || sender.hasPermission(permissionName))) {
-			sender.sendMessage(String.format("[%s] %s is now %s", PLUGIN_NAME, PLUGIN_NAME_SHORT, this.toggleSleepy() ? "enabled" : "disabled"));
+			sender.sendMessage(String.format("[%s] %s is now %s", PLUGIN_NAME, PLUGIN_NAME_SHORT, toggleSleepy() ? "enabled" : "disabled"));
 			return true;
 		}
 		return false;
@@ -267,7 +265,7 @@ public final class ServerNaptimeMain extends gvkJavaPlugin {
      * @return true if the server should sleep (no players, and active plugin), false otherwise.
      */
     private final boolean shouldServerSleep() {
-    	return getServer().getOnlinePlayers().size() == 0 && this.isSleepProcessActive;
+    	return getServer().getOnlinePlayers().size() == 0 && isSleepProcessActive;
     }
    
 }
