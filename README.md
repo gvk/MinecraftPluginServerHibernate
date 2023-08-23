@@ -1,5 +1,6 @@
 # Minecraft Plugin Server Hibernate / Sleep
-I mostly use PaperMC, so there might be traces of that in the code.
+I mostly use PaperMC, so there might be traces of that in the code.  
+Should work for any version of Minecraft, report to the issues page otherwise. 
 
 
 
