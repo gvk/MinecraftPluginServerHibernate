@@ -16,5 +16,7 @@ For small servers I use `java -Xms256m -Xmx3G -jar <jar file> nogui` to reduce i
 However, for performace reasons you might want to use the RAM as much as possible, then use google and look up "aikars flags java".
 
 
-Also check out: Hibernation https://github.com/gekigek99/minecraft-server-hibernation
-Also check out: Fabric-Carpet Slumber https://modrinth.com/mod/slumber
+**Also check out:**
+ * Hibernation https://github.com/gekigek99/minecraft-server-hibernation
+ * Fabric-Carpet Slumber https://modrinth.com/mod/slumber
+ * Server pauser https://www.curseforge.com/minecraft/mc-mods/serverpauser
