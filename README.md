@@ -17,7 +17,8 @@ However, for performace reasons you might want to use the RAM as much as possibl
 
 
 **Also check out:**
- * Hibernation https://github.com/gekigek99/minecraft-server-hibernation
- * Fabric-Carpet Slumber https://modrinth.com/mod/slumber
- * Server pauser https://www.curseforge.com/minecraft/mc-mods/serverpauser
+ * Hibernation: https://github.com/gekigek99/minecraft-server-hibernation
+ * Fabric-Carpet Slumber: https://modrinth.com/mod/slumber
+ * Server pauser: https://www.curseforge.com/minecraft/mc-mods/serverpauser
+ * Tick Stasis: https://modrinth.com/mod/tick-stasis
  * Multiplayer Server Pause (Forge): https://modrinth.com/mod/multiplayer-server-pause
